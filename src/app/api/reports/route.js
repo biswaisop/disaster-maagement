@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/app/utils/database";
 import Report from "@/app/models/Report";
-import { classifyDisaster } from "@/app/utils/ai"; // Import AI classification
+import { classifyDisaster } from "@/app/utils/ai"; // AI Classification
 
 // 🟢 Fetch Reports (GET)
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
   }
 }
 
-// 🟢 Submit a New Report (POST with AI)
+// 🟢 Submit a New Report (POST with AI & Status Update)
 export async function POST(req) {
   try {
     await connectDB();
@@ -36,17 +36,31 @@ export async function POST(req) {
       return NextResponse.json({ error: "AI classification failed" }, { status: 500 });
     }
 
+    // ✅ Determine status based on severity
+    let status = "pending"; // Default status
+    if (aiResult.severity === "severe" || aiResult.severity === "high") {
+      status = "urgent";
+    } else if (aiResult.severity === "moderate") {
+      status = "in-progress";
+    } else {
+      status = "low-priority";
+    }
+
+    console.log(`🚨 Status assigned: ${status}`);
+
+    // 📝 Save Report to Database
     const newReport = new Report({
       type: aiResult.type,
       description: data.description,
       severity: aiResult.severity,
       location: data.location,
+      status: status, // ✅ Include status field
     });
 
     await newReport.save();
     console.log("✅ Report saved successfully!");
 
-    return NextResponse.json({ message: "✅ Report submitted successfully with AI classification!" }, { status: 201 });
+    return NextResponse.json({ message: "✅ Report submitted successfully with AI classification & status update!" }, { status: 201 });
   } catch (error) {
     console.error("❌ Error submitting report:", error);
     return NextResponse.json({ error: "Failed to submit report" }, { status: 500 });
